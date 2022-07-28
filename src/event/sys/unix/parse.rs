@@ -5,6 +5,7 @@ use crate::{
         Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
         MouseEventKind,
     },
+    input::{Input},
     ErrorKind, Result,
 };
 
@@ -179,6 +180,11 @@ pub(crate) fn parse_csi(buffer: &[u8]) -> Result<Option<InternalEvent>> {
                 let last_byte = *buffer.last().unwrap();
                 if !(64..=126).contains(&last_byte) {
                     None
+                } else if buffer.len() >= 6 {
+                    // If the length is 6 by the time we've hit something in the 64-126 range, 
+                    // we're in a bracketed paste. Let it keep reading till it hits its end
+                    // delimiter
+                    return parse_csi_bracketed_paste(buffer);
                 } else {
                     match buffer[buffer.len() - 1] {
                         b'M' => return parse_csi_rxvt_mouse(buffer),
@@ -525,6 +531,18 @@ fn parse_cb(cb: u8) -> Result<(MouseEventKind, KeyModifiers)> {
     }
 
     Ok((kind, modifiers))
+}
+
+pub(crate) fn parse_csi_bracketed_paste( buffer: &[u8], ) -> Result<Option<InternalEvent>> {
+    // ESC [ 2 0 0 ~ pasted text ESC 2 0 1 ~
+    assert!(buffer.starts_with(b"\x1B[200~"));
+
+    if !buffer.ends_with(b"\x1b[201~") {
+        Ok(None)
+    } else {
+        let paste = String::from_utf8_lossy(&buffer[6..buffer.len() - 6]).to_string();
+        Ok(Some(InternalEvent::Input(Input::Paste(paste))))
+    }
 }
 
 pub(crate) fn parse_utf8_char(buffer: &[u8]) -> Result<Option<char>> {

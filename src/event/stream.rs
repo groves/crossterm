@@ -106,6 +106,7 @@ impl Stream for EventStream {
         let result = match poll_internal(Some(Duration::from_secs(0)), &EventFilter) {
             Ok(true) => match read_internal(&EventFilter) {
                 Ok(InternalEvent::Event(event)) => Poll::Ready(Some(Ok(event))),
+                Ok(InternalEvent::Input(input)) => Poll::Ready(Some(Ok(input))),
                 Err(e) => Poll::Ready(Some(Err(e))),
                 #[cfg(unix)]
                 _ => unreachable!(),

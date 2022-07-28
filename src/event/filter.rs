@@ -23,7 +23,11 @@ pub(crate) struct EventFilter;
 impl Filter for EventFilter {
     #[cfg(unix)]
     fn eval(&self, event: &InternalEvent) -> bool {
-        matches!(*event, InternalEvent::Event(_))
+        match event {
+            InternalEvent::Event(_) => true,
+            InternalEvent::Input(_) => true,
+            _ => false
+            }
     }
 
     #[cfg(windows)]

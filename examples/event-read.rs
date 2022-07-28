@@ -8,10 +8,11 @@ use crossterm::event::poll;
 use crossterm::{
     cursor::position,
     event::{
-        read, DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture,
+        DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture,
         Event, KeyCode,
     },
     execute,
+    input::{ read, Input, EnableBracketedPaste, DisableBracketedPaste },
     terminal::{disable_raw_mode, enable_raw_mode},
     Result,
 };
@@ -26,22 +27,29 @@ const HELP: &str = r#"Blocking read()
 fn print_events() -> Result<()> {
     loop {
         // Blocking read
-        let event = read()?;
+        let input = read()?;
 
-        println!("Event: {:?}\r", event);
+        match input {
+            Input::Event(event) => {
+                println!("Event: {:?}\r", event);
+                if event == Event::Key(KeyCode::Char('c').into()) {
+                    println!("Cursor position: {:?}\r", position());
+                }
 
-        if event == Event::Key(KeyCode::Char('c').into()) {
-            println!("Cursor position: {:?}\r", position());
+                if let Event::Resize(_, _) = event {
+                    let (original_size, new_size) = flush_resize_events(event);
+                    println!("Resize from: {:?}, to: {:?}", original_size, new_size);
+                }
+
+                if event == Event::Key(KeyCode::Esc.into()) {
+                    break;
+                }
+            },
+            Input::Paste(data) => {
+                println!("Pasted {:?}", data);
+            }
         }
 
-        if let Event::Resize(_, _) = event {
-            let (original_size, new_size) = flush_resize_events(event);
-            println!("Resize from: {:?}, to: {:?}", original_size, new_size);
-        }
-
-        if event == Event::Key(KeyCode::Esc.into()) {
-            break;
-        }
     }
 
     Ok(())
@@ -54,7 +62,7 @@ fn flush_resize_events(event: Event) -> ((u16, u16), (u16, u16)) {
     if let Event::Resize(x, y) = event {
         let mut last_resize = (x, y);
         while let Ok(true) = poll(Duration::from_millis(50)) {
-            if let Ok(Event::Resize(x, y)) = read() {
+            if let Ok(Input::Event(Event::Resize(x, y))) = read() {
                 last_resize = (x, y);
             }
         }
@@ -70,13 +78,13 @@ fn main() -> Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = stdout();
-    execute!(stdout, EnableFocusChange, EnableMouseCapture)?;
+    execute!(stdout, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture)?;
 
     if let Err(e) = print_events() {
         println!("Error: {:?}\r", e);
     }
 
-    execute!(stdout, DisableFocusChange, DisableMouseCapture)?;
+    execute!(stdout, DisableBracketedPaste, DisableFocusChange, DisableMouseCapture)?;
 
     disable_raw_mode()
 }

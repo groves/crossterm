@@ -244,6 +244,7 @@ pub use crate::{
 pub mod cursor;
 /// A module to read events.
 pub mod event;
+pub mod input;
 /// A module to apply attributes and colors on your text.
 pub mod style;
 /// A module to work with the terminal.

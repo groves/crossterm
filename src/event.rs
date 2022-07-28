@@ -88,6 +88,7 @@ use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 
 use crate::{csi, Command, Result};
+use crate::input::Input;
 use filter::{EventFilter, Filter};
 use read::InternalEventReader;
 #[cfg(feature = "event-stream")]
@@ -699,6 +700,7 @@ pub enum KeyCode {
 pub(crate) enum InternalEvent {
     /// An event.
     Event(Event),
+    Input(Input),
     /// A cursor position (`col`, `row`).
     #[cfg(unix)]
     CursorPosition(u16, u16),
