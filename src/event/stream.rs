@@ -12,11 +12,12 @@ use std::{
 
 use futures_core::stream::Stream;
 
+use crate::input::Input;
 use crate::Result;
 
 use super::{
     filter::EventFilter, lock_internal_event_reader, poll_internal, read_internal, sys::Waker,
-    Event, InternalEvent,
+    InternalEvent,
 };
 
 /// A stream of `Result<Event>`.
@@ -100,12 +101,12 @@ struct Task {
 // We have to wake up the poll_internal (force it to return Ok(false)) and quit
 // the thread before we drop.
 impl Stream for EventStream {
-    type Item = Result<Event>;
+    type Item = Result<Input>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let result = match poll_internal(Some(Duration::from_secs(0)), &EventFilter) {
             Ok(true) => match read_internal(&EventFilter) {
-                Ok(InternalEvent::Event(event)) => Poll::Ready(Some(Ok(event))),
+                Ok(InternalEvent::Event(event)) => Poll::Ready(Some(Ok(Input::Event(event)))),
                 Ok(InternalEvent::Input(input)) => Poll::Ready(Some(Ok(input))),
                 Err(e) => Poll::Ready(Some(Err(e))),
                 #[cfg(unix)]
